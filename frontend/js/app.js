@@ -1,15 +1,24 @@
-import { createSelection } from './selection.js';
+import { createCart, CART_STORAGE_KEY } from './cart.js';
 
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
-const selection = createSelection();
+let cart;
 const main = document.querySelector('#main');
 const search = document.querySelector('#search');
-const dialog = document.querySelector('#selection-dialog');
+const dialog = document.querySelector('#qr-dialog');
 const arrow = '<span aria-hidden="true">↗</span>';
 const check = '<span aria-hidden="true">✓</span>';
 let products = [];
 let catalogUrl = '/';
 let toastTimer;
+let qrRequest = 0;
+
+function storageError() { document.querySelector('#storage-notice').hidden = false; }
+function browserStorage() {
+  try { return window.localStorage; }
+  catch { storageError(); return null; }
+}
+function updateCartCount() { document.querySelector('#cart-count').textContent = cart.count(); }
+const qrIcon = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2h6v6H2zM12 2h6v6h-6zM2 12h6v6H2zM12 12h3v3h3v3h-6z"/></svg>';
 
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -27,8 +36,9 @@ function card(product) {
         <img src="${product.image}" alt="${escapeHTML(product.title)}" width="600" height="480" loading="lazy">
         <span class="card-arrow" aria-hidden="true">↗</span>
       </div>
-      <div class="product-content"><span class="product-category">${escapeHTML(product.category)}</span><h3>${escapeHTML(product.title)}</h3><p class="product-price">${money.format(product.price)}</p>${stockLabel(product)}</div>
+      <div class="product-content"><span class="product-category">${escapeHTML(product.brand)} · ${escapeHTML(product.category)}</span><h3>${escapeHTML(product.title)}</h3><p class="product-price">${money.format(product.price)}</p></div>
     </a>
+    <div class="card-footer">${stockLabel(product)}<button class="card-qr" data-qr="${product.id}" aria-label="Ver QR de ${escapeHTML(product.title)}" title="Ver QR del producto">${qrIcon}</button></div>
   </article>`;
 }
 
@@ -41,7 +51,7 @@ function renderCatalog() {
   main.innerHTML = `<div class="container">
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-copy"><span class="eyebrow"><span class="small-line"></span> BIENVENIDO A QRMARKET</span><h1 id="hero-title">Tu próximo hallazgo<br>está <em>acá.</em></h1><p>Objetos que te gustan, para la vida que llevás.<br>Descubrí nuestra selección y encontrá el tuyo.</p><a href="#catalogo" class="button button-primary">Explorar productos ${arrow}</a></div>
-      <div class="hero-art" aria-hidden="true"><span class="hero-circle"></span><img class="hero-headphones" src="/assets/auriculares.svg" alt="" width="600" height="480"><span class="hero-spark">✳</span><div class="hero-note"><span class="note-icon">♪</span><div>Diseñados para tu día.<br><strong>Elegidos por vos.</strong></div></div><span class="hero-caption">LA SELECCIÓN · 2026</span></div>
+      <div class="hero-art" aria-hidden="true"><span class="hero-circle"></span><img class="hero-headphones" src="${products[0].image}" alt="" width="600" height="480"><span class="hero-spark">✳</span><div class="hero-note"><span class="note-icon">♪</span><div>El sonido de tus días.<br><strong>Sony WH-CH520.</strong></div></div><span class="hero-caption">LA SELECCIÓN · 2026</span></div>
     </section>
     <section class="catalog" id="catalogo" aria-labelledby="catalog-title">
       <div class="section-heading"><div><span class="eyebrow">COSAS LINDAS, TODOS LOS DÍAS</span><h2 id="catalog-title">Encontrá tu próximo favorito<span>.</span></h2></div><p id="result-count" role="status" aria-live="polite"></p></div>
@@ -82,7 +92,7 @@ function renderGrid() {
   const query = params.get('buscar') || '';
   const category = params.get('categoria');
   let result = products.filter((product) => (!category || product.category === category)
-    && normalize(`${product.title} ${product.category} ${product.description}`).includes(normalize(query.trim())));
+    && normalize(`${product.brand} ${product.title} ${product.category} ${product.description}`).includes(normalize(query.trim())));
   switch (params.get('orden')) {
     case 'precio-asc': result.sort((a, b) => a.price - b.price); break;
     case 'precio-desc': result.sort((a, b) => b.price - a.price); break;
@@ -109,7 +119,8 @@ function renderDetail(product) {
       <section class="detail-copy" aria-labelledby="product-title"><span class="eyebrow">${escapeHTML(product.category)}</span><h1 id="product-title">${escapeHTML(product.title)}</h1><p class="product-subtitle">${escapeHTML(product.subtitle)}</p><p class="detail-price">${money.format(product.price)} <span>ARS</span></p>${stockLabel(product)}
         <p class="description">${escapeHTML(product.description)}</p><ul class="features">${product.features.map((feature) => `<li>${check}${escapeHTML(feature)}</li>`).join('')}</ul>
         <form id="add-form" class="add-form"><div class="quantity-row"><label for="quantity">Cantidad</label><span id="quantity-hint"></span></div><div class="purchase-controls"><div class="quantity-control"><button type="button" id="decrease" aria-label="Disminuir cantidad">−</button><input type="number" id="quantity" name="quantity" value="1" min="1" max="${product.stock}" step="1" required aria-describedby="quantity-hint" aria-label="Cantidad de unidades"><button type="button" id="increase" aria-label="Aumentar cantidad">+</button></div><button type="submit" id="add-button" class="button button-primary">Agregar al carrito ${arrow}</button></div><p class="form-message" id="add-message" role="status" aria-live="polite"></p></form>
-        <details class="product-info"><summary>Más sobre este producto <span aria-hidden="true">+</span></summary><p>${escapeHTML(product.detail)}</p></details>
+        <details class="product-info"><summary>Más sobre este producto <span aria-hidden="true">+</span></summary><p>${escapeHTML(product.detail)}</p><a class="manufacturer-link" href="${escapeHTML(product.sourceUrl)}" target="_blank" rel="noopener noreferrer">Ficha oficial de ${escapeHTML(product.brand)} ↗</a></details>
+        <div class="product-actions"><button class="button button-secondary" data-qr="${product.id}">${qrIcon} Ver QR del producto</button><a href="/carrito" data-link>Ver mi carrito ${arrow}</a></div>
         <a class="back-link" href="${escapeHTML(catalogUrl)}" data-link><span aria-hidden="true">←</span> Volver al catálogo</a>
       </section>
     </div>
@@ -119,7 +130,7 @@ function renderDetail(product) {
   const decrease = document.querySelector('#decrease');
   const increase = document.querySelector('#increase');
   const addButton = document.querySelector('#add-button');
-  const remaining = () => product.stock - selection.quantity(product.id);
+  const remaining = () => product.stock - cart.quantity(product.id);
   function syncQuantity() {
     const available = remaining();
     quantity.disabled = !available;
@@ -127,7 +138,7 @@ function renderDetail(product) {
     decrease.disabled = !available || quantity.valueAsNumber <= 1;
     increase.disabled = !available || quantity.valueAsNumber >= available;
     addButton.disabled = !available;
-    addButton.innerHTML = available ? `Agregar al carrito ${arrow}` : product.stock ? 'Stock seleccionado' : 'Sin stock';
+    addButton.innerHTML = available ? `Agregar al carrito ${arrow}` : product.stock ? 'Ya tenés todo el stock en tu carrito' : 'Sin stock';
     document.querySelector('#quantity-hint').textContent = !product.stock ? 'Producto agotado' : `${available} disponibles para agregar`;
   }
   decrease.addEventListener('click', () => { quantity.value = String(Math.max(1, (quantity.valueAsNumber || 1) - 1)); syncQuantity(); });
@@ -138,10 +149,10 @@ function renderDetail(product) {
     if (!quantity.reportValidity()) return;
     try {
       const amount = quantity.valueAsNumber;
-      selection.add(product, amount);
-      document.querySelector('#selection-count').textContent = selection.count();
-      document.querySelector('#add-message').textContent = `${amount} ${amount === 1 ? 'unidad agregada' : 'unidades agregadas'} a tu selección.`;
-      showToast(`${check} ${escapeHTML(product.title)} se agregó a tu selección.`);
+      cart.add(product.id, amount);
+      updateCartCount();
+      document.querySelector('#add-message').innerHTML = `${amount} ${amount === 1 ? 'unidad agregada' : 'unidades agregadas'} a tu carrito. <a href="/carrito" data-link>Ver carrito →</a>`;
+      showToast(`${check} ${escapeHTML(product.title)} se agregó a tu carrito.`);
       quantity.value = '1';
       syncQuantity();
     } catch (error) {
@@ -150,6 +161,86 @@ function renderDetail(product) {
   });
   syncQuantity();
 }
+
+function renderCart() {
+  document.title = 'Tu carrito · QRMarket MP';
+  search.value = '';
+  const items = cart.items();
+  main.innerHTML = `<div class="container cart-page">
+    <nav class="breadcrumb" aria-label="Ruta de navegación"><a href="${escapeHTML(catalogUrl)}" data-link>Catálogo</a><span aria-hidden="true">/</span><span aria-current="page">Tu carrito</span></nav>
+    <div class="section-heading"><div><span class="eyebrow">TUS PRÓXIMOS FAVORITOS</span><h1>Tu carrito<span>.</span></h1></div>${items.length ? '<button class="text-button" data-cart-action="clear">Vaciar carrito</button>' : ''}</div>
+    ${items.length ? `<div class="cart-layout"><section class="cart-items" aria-label="Productos en tu carrito">${items.map(({ product, quantity, lineTotal }) => `
+      <article class="cart-item" data-cart-item="${product.id}">
+        <a class="cart-item-image ${product.color}" href="/productos/${product.id}" data-link><img src="${product.image}" alt="${escapeHTML(product.title)}" width="120" height="120"></a>
+        <div class="cart-item-description"><span class="product-category">${escapeHTML(product.brand)}</span><a href="/productos/${product.id}" data-link><h2>${escapeHTML(product.title)}</h2></a><p>${money.format(product.price)} <span>por unidad</span></p>${stockLabel(product)}<button class="remove-item" data-cart-action="remove" data-id="${product.id}" aria-label="Eliminar ${escapeHTML(product.title)}">Eliminar</button></div>
+        <div class="cart-item-amount"><div class="quantity-control"><button type="button" data-cart-action="decrease" data-id="${product.id}" aria-label="Disminuir ${escapeHTML(product.title)}" ${quantity <= 1 ? 'disabled' : ''}>−</button><input type="number" value="${quantity}" min="1" max="${product.stock}" step="1" required data-cart-quantity="${product.id}" aria-label="Cantidad de ${escapeHTML(product.title)}"><button type="button" data-cart-action="increase" data-id="${product.id}" aria-label="Aumentar ${escapeHTML(product.title)}" ${quantity >= product.stock ? 'disabled' : ''}>+</button></div><strong>${money.format(lineTotal)}</strong></div>
+      </article>`).join('')}</section>
+      <aside class="cart-summary" aria-labelledby="summary-title"><span class="eyebrow">UN PASO MÁS CERCA</span><h2 id="summary-title">Tu selección</h2><div class="summary-row"><span>Productos</span><span>${cart.count()} ${cart.count() === 1 ? 'unidad' : 'unidades'}</span></div><div class="summary-total"><span>Subtotal</span><strong id="cart-subtotal">${money.format(cart.subtotal())}</strong></div><p>Tu carrito queda guardado para que puedas seguir donde lo dejaste.</p><a class="button button-primary" href="${escapeHTML(catalogUrl)}" data-link>Seguir comprando ${arrow}</a><span class="demo-note">Precios y stock de demostración · ARS</span></aside></div>`
+      : `<div class="empty-state empty-cart"><span aria-hidden="true">✳</span><h2>Acá empieza tu próximo hallazgo.</h2><p>Tu carrito está vacío. Explorá el catálogo y agregá lo que más te guste.</p><a href="${escapeHTML(catalogUrl)}" data-link class="button button-primary">Explorar productos ${arrow}</a></div>`}
+  </div>`;
+}
+
+async function openQR(id) {
+  const product = products.find((item) => item.id === id);
+  if (!product) return;
+  const request = ++qrRequest;
+  document.querySelector('#qr-title').textContent = product.title;
+  const content = document.querySelector('#qr-content');
+  content.innerHTML = '<p class="qr-loading" role="status">Generando el QR de tu producto…</p>';
+  if (!dialog.open) dialog.showModal();
+  try {
+    const response = await fetch(`/api/products/${id}/qr`);
+    if (!response.ok) throw new Error('No pudimos generar el QR.');
+    const data = await response.json();
+    if (request !== qrRequest || !dialog.open) return;
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(new URL(data.url).hostname);
+    content.innerHTML = `<p class="qr-intro">Escaneá este código para abrir la página del producto.</p><img class="qr-image" src="${data.qrImage}" alt="QR para abrir ${escapeHTML(product.title)}" width="400" height="400"><a class="qr-target" href="${escapeHTML(data.url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(data.url)}</a><a class="button button-primary qr-download" href="/api/products/${id}/qr.png" download="${id}-qr.png">Descargar QR <span aria-hidden="true">↓</span></a>${local ? '<p class="qr-local-note">El enlace usa localhost. Para abrirlo desde tu celular, accedé a la tienda con la dirección de tu computadora en la misma red Wi-Fi o con una dirección pública.</p>' : ''}`;
+  } catch {
+    if (request === qrRequest && dialog.open) content.innerHTML = `<div class="qr-error"><p>No pudimos generar el QR. Intentá de nuevo.</p><button class="button button-primary" data-qr="${id}">Reintentar</button></div>`;
+  }
+}
+
+document.addEventListener('click', (event) => {
+  const qrButton = event.target.closest('[data-qr]');
+  if (qrButton) openQR(qrButton.dataset.qr);
+  const button = event.target.closest('[data-cart-action]');
+  if (!button || !cart) return;
+  const { cartAction: action, id } = button.dataset;
+  try {
+    if (action === 'clear') cart.clear();
+    if (action === 'remove') cart.remove(id);
+    if (action === 'increase') cart.setQuantity(id, cart.quantity(id) + 1);
+    if (action === 'decrease') cart.setQuantity(id, cart.quantity(id) - 1);
+    updateCartCount();
+    renderCart();
+    const control = [...main.querySelectorAll('[data-cart-action]')].find((item) => item.dataset.cartAction === action && item.dataset.id === id && !item.disabled);
+    (control || main).focus({ preventScroll: true });
+    if (action === 'remove') showToast('Producto eliminado del carrito.');
+    if (action === 'clear') showToast('Vaciaste tu carrito.');
+  } catch (error) { showToast(escapeHTML(error.message)); }
+});
+
+main.addEventListener('change', (event) => {
+  const input = event.target.closest('[data-cart-quantity]');
+  if (!input) return;
+  const id = input.dataset.cartQuantity;
+  try {
+    cart.setQuantity(id, input.valueAsNumber);
+    updateCartCount();
+    renderCart();
+    main.querySelector(`[data-cart-quantity="${id}"]`)?.focus({ preventScroll: true });
+  } catch (error) {
+    input.value = String(cart.quantity(id));
+    showToast(escapeHTML(error.message));
+  }
+});
+
+window.addEventListener('storage', (event) => {
+  if (!cart || (event.key !== CART_STORAGE_KEY && event.key !== null)) return;
+  cart.reload();
+  updateCartCount();
+  if (location.pathname !== '/') renderRoute();
+});
 
 function showToast(message) {
   clearTimeout(toastTimer);
@@ -163,6 +254,10 @@ function renderNotFound() {
   main.innerHTML = '<div class="container empty-state page-empty"><span class="eyebrow">404</span><h1>Este hallazgo no está por acá.</h1><p>El producto que buscás no existe o el enlace es incorrecto.</p><a href="/" data-link class="button button-primary">Volver al catálogo ↗</a></div>';
 }
 function renderRoute() {
+  if (location.pathname === '/carrito' || location.pathname === '/carrito/') {
+    renderCart();
+    return;
+  }
   if (location.pathname === '/') {
     catalogUrl = location.pathname + location.search;
     renderCatalog();
@@ -194,13 +289,8 @@ document.querySelector('#search-form').addEventListener('submit', (event) => {
   navigate(`/${params.size ? `?${params}` : ''}`);
   document.querySelector('#catalogo').scrollIntoView({ behavior: 'smooth' });
 });
-document.querySelector('#open-selection').addEventListener('click', () => {
-  const items = selection.entries().map(([id, quantity]) => ({ product: products.find((product) => product.id === id), quantity }));
-  document.querySelector('#selection-content').innerHTML = items.length ? `<ul class="selection-list">${items.map(({ product, quantity }) => `<li><img class="${product.color}" src="${product.image}" alt="" width="70" height="64"><div><strong>${escapeHTML(product.title)}</strong><span>${quantity} × ${money.format(product.price)}</span></div><strong>${money.format(product.price * quantity)}</strong></li>`).join('')}</ul><div class="selection-total"><span>Subtotal</span><strong>${money.format(items.reduce((total, { product, quantity }) => total + product.price * quantity, 0))}</strong></div>` : '<div class="empty-selection"><p>Todavía no elegiste productos.</p><span>Tu próximo favorito está a un clic.</span></div>';
-  dialog.showModal();
-});
-document.querySelector('#close-selection').addEventListener('click', () => dialog.close());
-document.querySelector('#continue-shopping').addEventListener('click', () => { dialog.close(); if (location.pathname !== '/') navigate(catalogUrl); });
+document.querySelector('#close-qr').addEventListener('click', () => dialog.close());
+dialog.addEventListener('close', () => { qrRequest++; });
 dialog.addEventListener('click', (event) => { if (event.target === dialog) { const rect = dialog.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close(); } });
 
 async function loadProducts() {
@@ -209,6 +299,8 @@ async function loadProducts() {
     if (!response.ok) throw new Error('No se pudo cargar el catálogo.');
     const data = await response.json();
     products = data.products;
+    if (!cart) cart = createCart(products, { storage: browserStorage(), onStorageError: storageError });
+    updateCartCount();
     renderRoute();
   } catch {
     main.innerHTML = '<div class="container empty-state page-empty"><h1>No pudimos cargar el catálogo</h1><p>Revisá tu conexión e intentá de nuevo.</p><button class="button button-primary" id="retry">Volver a intentar</button></div>';

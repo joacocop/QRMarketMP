@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { products } from './data/products.js';
+import { productQR } from './product-qr.js';
 
 const publicDirectory = fileURLToPath(new URL('../frontend/', import.meta.url));
 export const app = express();
@@ -13,11 +14,21 @@ app.get('/api/products/:id', (req, res) => {
   if (!product) return res.status(404).json({ error: 'Producto no encontrado.' });
   res.json({ product });
 });
+app.get(['/api/products/:id/qr', '/api/products/:id/qr.png'], async (req, res) => {
+  const product = products.find((item) => item.id === req.params.id);
+  if (!product) return res.status(404).json({ error: 'Producto no encontrado.' });
+  const { url, image } = await productQR(product.id, `${req.protocol}://${req.get('host')}`);
+  res.set('Cache-Control', 'no-store');
+  if (req.path.endsWith('.png')) {
+    return res.attachment(`${product.id}-qr.png`).type('png').send(image);
+  }
+  res.json({ productId: product.id, url, qrImage: `data:image/png;base64,${image.toString('base64')}` });
+});
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Recurso no encontrado.' }));
 
 // Se expone únicamente frontend; el código del servidor y .env quedan fuera.
 app.use(express.static(publicDirectory, { index: false }));
-app.get(['/', '/productos/:id'], (req, res) => {
+app.get(['/', '/productos/:id', '/carrito'], (req, res) => {
   if (req.params.id && !products.some((item) => item.id === req.params.id)) {
     res.status(404);
   }

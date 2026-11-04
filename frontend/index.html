@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#164d42">
+    <meta name="theme-color" content="#5b3c2e">
     <meta name="description" content="Encontrá objetos para todos los días en QRMarket MP. Explorá el catálogo y descubrí tu próximo favorito.">
     <title>QRMarket MP · Encontrá tu próximo favorito</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
@@ -24,18 +24,18 @@
           <input id="search" type="search" name="buscar" placeholder="¿Qué estás buscando?" aria-label="Buscar productos" autocomplete="off">
           <button type="submit" class="search-submit" aria-label="Buscar">↵</button>
         </form>
-        <button class="selection-button" id="open-selection" aria-haspopup="dialog">
+        <a class="selection-button" href="/carrito" data-link>
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 8h14l1 13H4L5 8Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg>
-          <span>Tu selección</span><span class="selection-count" id="selection-count">0</span>
-        </button>
+          <span>Tu carrito</span><span class="selection-count" id="cart-count" aria-live="polite">0</span>
+        </a>
       </div>
     </header>
+    <div class="container storage-notice" id="storage-notice" role="status" hidden>No pudimos guardar tu carrito en este navegador. Podés seguir usándolo, pero los cambios podrían perderse al recargar.</div>
     <main id="main" tabindex="-1"><div class="container loading" role="status">Preparando tus próximos favoritos…</div></main>
-    <footer class="site-footer"><div class="container footer-content"><a class="footer-brand" href="/" data-link>qrmarket<span>mp</span></a><p>Pequeños hallazgos. Grandes momentos.</p><span>Catálogo de demostración · ARS</span></div></footer>
-    <dialog id="selection-dialog" aria-labelledby="selection-title">
-      <div class="dialog-header"><div><span class="eyebrow">TUS FAVORITOS DEL DÍA</span><h2 id="selection-title">Tu selección</h2></div><button class="icon-button" id="close-selection" aria-label="Cerrar selección">×</button></div>
-      <div id="selection-content"></div>
-      <button class="button button-primary dialog-continue" id="continue-shopping">Seguir explorando <span aria-hidden="true">↗</span></button>
+    <footer class="site-footer"><div class="container footer-content"><a class="footer-brand" href="/" data-link>qrmarket<span>mp</span></a><p>Pequeños hallazgos. Grandes momentos.</p><span>Productos reales · Precios y stock de demostración</span></div></footer>
+    <dialog id="qr-dialog" aria-labelledby="qr-title">
+      <div class="dialog-header"><div><span class="eyebrow">ESCANEÁ Y DESCUBRÍ</span><h2 id="qr-title">QR del producto</h2></div><button class="icon-button" id="close-qr" aria-label="Cerrar QR">×</button></div>
+      <div id="qr-content" aria-live="polite"></div>
     </dialog>
     <div id="toast" role="status" aria-live="polite" class="toast" hidden></div>
     <noscript><div class="container empty-state">Activá JavaScript en tu navegador para ver el catálogo.</div></noscript>

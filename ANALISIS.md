@@ -2,7 +2,7 @@
 
 ## Alcance acordado
 
-Trabajar en esta carpeta por requisitos: QM1, luego QM2 y así sucesivamente. Se pueden agrupar varios QM cuando el usuario lo indique. El usuario solicitó implementar QM1 y QM2 juntos.
+Trabajar en esta carpeta por requisitos: QM1, luego QM2 y así sucesivamente. Se pueden agrupar varios QM cuando el usuario lo indique. Después de QM1 y QM2, el usuario pidió una paleta café/beige/crema, productos reales e implementar QM3 y QM4 juntos.
 
 Fuente: PDF «Marketplace con Generación de QR + Carrito de Compras + Integración MercadoPago», de 16 páginas, fechado el 04/11/2026. Los requisitos funcionales están en las páginas 12 y 13; la evaluación y los entregables, en las páginas 14 a 16.
 
@@ -10,7 +10,7 @@ La carpeta estaba vacía al comenzar la revisión.
 
 ## Requisitos y criterios de finalización
 
-**Implementados: QM1 y QM2.** QM3 a QM12 siguen pendientes. La columna de verificación traduce la consigna en comprobaciones propuestas para cada etapa.
+**Implementados: QM1, QM2, QM3 y QM4.** QM5 a QM12 siguen pendientes. La columna de verificación traduce la consigna en comprobaciones propuestas para cada etapa.
 
 | ID | Requisito del PDF | Cómo comprobar que está resuelto |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ La carpeta estaba vacía al comenzar la revisión.
 ## Dependencias para avanzar en orden
 
 - QM1 define los datos básicos de productos que reutilizan QM2, QM3 y QM4.
-- QM2 puede dejar preparada la acción del botón; QM4 completa el comportamiento del carrito.
+- QM2 permite agregar productos; QM4 completa la edición, eliminación y persistencia del carrito.
 - Para probar QM3 con un celular, la URL de destino debe ser accesible desde ese dispositivo. Una dirección localhost del equipo no alcanza para esa prueba.
 - QM5 utiliza los productos y cantidades del carrito. Los precios y totales definitivos se calculan y validan en el backend.
 - QM6 reutiliza la preferencia creada para QM5. El QR por producto de QM3 y el QR de pago de QM6 cumplen funciones distintas.
@@ -91,8 +91,14 @@ Las publicaciones, entregas en plataformas y configuración de servicios externo
 
 ## Próximo paso
 
-QM1 resuelto: grilla de ocho productos con imágenes locales, título, precio en ARS y stock. Incluye búsqueda, categorías, orden y estados vacíos/de error.
+QM1 resuelto: grilla de ocho modelos reales con fotografías locales, título, precio en ARS y stock de demostración. Incluye búsqueda, categorías, orden y estados vacíos/de error. Paleta café, beige y crema.
 
-QM2 resuelto: URL de detalle por producto, descripción, características, selector de cantidad limitado por stock y botón «Agregar al carrito» que alimenta una selección temporal en memoria. Se puede revisar esa selección desde la cabecera. Se conserva durante la navegación interna; se reinicia al recargar. La persistencia y la edición del carrito se implementarán en QM4.
+QM2 resuelto: URL de detalle por producto, descripción, características, selector de cantidad limitado por stock y botón «Agregar al carrito». Cada detalle enlaza a la ficha oficial del fabricante.
 
-Las instrucciones para ejecutar y comprobar esta etapa están en README.md. Próximo requisito, cuando el usuario lo indique: QM3, QR por producto.
+QM3 resuelto: QR por producto desde tarjetas y detalle, URL visible y descarga PNG. Admite PUBLIC_BASE_URL en .env para direcciones accesibles desde otro dispositivo. Los ocho QR se decodificaron automáticamente y apuntan al producto correspondiente.
+
+QM4 resuelto: página /carrito con edición de cantidades, eliminación, vaciado, subtotal y contador. Persiste en localStorage, sincroniza pestañas, valida datos al restaurar y ajusta cantidades frente al stock actual. Avisa si el navegador no permite guardar.
+
+Validación: 16 pruebas automáticas aprobadas y recorrido de navegador en computadora y anchos de 390/320 px. QR descargado y decodificado; carrito probado tras recarga, entre pestañas y ante almacenamiento corrupto/bloqueado. Las instrucciones están en README.md y las fuentes de los productos en PRODUCTOS.md.
+
+Próximo requisito, cuando el usuario lo indique: QM5, checkout con MercadoPago.

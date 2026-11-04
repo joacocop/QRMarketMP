@@ -1,0 +1,68 @@
+// Datos de demostración compartidos por el catálogo y el detalle.
+// Los importes están expresados en pesos argentinos (ARS).
+export const products = [
+  {
+    id: 'auriculares-nube', title: 'Auriculares Nube', category: 'Tecnología',
+    price: 84900, stock: 12, image: '/assets/auriculares.svg', color: 'sage',
+    tag: 'Favorito', subtitle: 'Tu música, tu momento.',
+    description: 'Bajá el ruido del día y subí tus canciones favoritas. Auriculares inalámbricos con almohadillas suaves y un diseño liviano para acompañarte en el trabajo, en casa o de camino a donde quieras.',
+    features: ['Conexión Bluetooth y entrada auxiliar', 'Hasta 30 horas de autonomía', 'Almohadillas acolchadas y vincha regulable'],
+    detail: 'Incluye cable de carga USB-C y cable auxiliar.',
+  },
+  {
+    id: 'lampara-orbita', title: 'Lámpara Órbita', category: 'Hogar',
+    price: 46500, stock: 8, image: '/assets/lampara.svg', color: 'sand',
+    tag: '', subtitle: 'Una luz para bajar un cambio.',
+    description: 'Un rincón de lectura, tu mesa de trabajo o la mesita de noche. Órbita suma una luz cálida y una silueta simple que se lleva bien con cualquier espacio.',
+    features: ['Luz LED cálida de bajo consumo', 'Cuerpo de metal con acabado mate', 'Interruptor integrado en el cable'],
+    detail: 'Medidas: 38 cm de alto y 24 cm de diámetro. Alimentación: 220 V.',
+  },
+  {
+    id: 'mochila-nomada', title: 'Mochila Nómada', category: 'Accesorios',
+    price: 62900, stock: 6, image: '/assets/mochila.svg', color: 'clay',
+    tag: 'Nuevo', subtitle: 'Llevá lo que te mueve.',
+    description: 'De la facu a la oficina y de ahí a una escapada. Una mochila cómoda, de líneas limpias, con espacio para tus esenciales y un bolsillo dedicado para tu notebook.',
+    features: ['Capacidad de 20 litros', 'Compartimento acolchado para notebook de hasta 15 pulgadas', 'Tela repelente al agua y correas ajustables'],
+    detail: 'Medidas: 43 × 29 × 15 cm. Color: terracota.',
+  },
+  {
+    id: 'termo-senda', title: 'Termo Senda', category: 'Aire libre',
+    price: 38500, stock: 20, image: '/assets/termo.svg', color: 'cream',
+    tag: '', subtitle: 'Siempre hay tiempo para unos mates.',
+    description: 'El compañero de tus mañanas y tus paseos. Senda conserva la temperatura de tus bebidas y tiene un pico pensado para cebar con comodidad, vayas donde vayas.',
+    features: ['Capacidad de 1 litro', 'Doble pared de acero inoxidable', 'Tapa a rosca con cierre hermético'],
+    detail: 'Lavar a mano. No apto para microondas.',
+  },
+  {
+    id: 'parlante-pulso', title: 'Parlante Pulso', category: 'Tecnología',
+    price: 54900, stock: 9, image: '/assets/parlante.svg', color: 'lilac',
+    tag: '', subtitle: 'Buen sonido, en cualquier rincón.',
+    description: 'Pequeño por fuera, protagonista de tus playlists. Un parlante portátil con textura tejida y controles simples para llenar de música el escritorio o llevar a una juntada.',
+    features: ['Conectividad Bluetooth', 'Hasta 12 horas de reproducción', 'Carga USB-C y correa de transporte'],
+    detail: 'Incluye cable USB-C. Color: grafito.',
+  },
+  {
+    id: 'reloj-ritmo', title: 'Reloj Ritmo', category: 'Tecnología',
+    price: 72900, stock: 4, image: '/assets/reloj.svg', color: 'peach',
+    tag: 'Últimas unidades', subtitle: 'A tu tiempo.',
+    description: 'Un reloj para seguirte el ritmo. Consultá la hora, recibí notificaciones y registrá tu actividad diaria con una pantalla clara y una correa que se siente cómoda todo el día.',
+    features: ['Pantalla táctil a color', 'Registro de pasos y actividad', 'Correa de silicona intercambiable'],
+    detail: 'Compatible con Android e iOS. No es un dispositivo médico.',
+  },
+  {
+    id: 'camara-instante', title: 'Cámara Instante', category: 'Accesorios',
+    price: 119900, stock: 0, image: '/assets/camara.svg', color: 'blue',
+    tag: '', subtitle: 'Los buenos momentos, en papel.',
+    description: 'Hay recuerdos que merecen salir de la pantalla. Una cámara instantánea de inspiración clásica, fácil de usar y lista para acompañar tus viajes y encuentros.',
+    features: ['Impresión de fotos instantáneas', 'Flash integrado', 'Correa de mano incluida'],
+    detail: 'Las películas instantáneas se venden por separado.',
+  },
+  {
+    id: 'teclado-trazo', title: 'Teclado Trazo', category: 'Tecnología',
+    price: 67900, stock: 7, image: '/assets/teclado.svg', color: 'mint',
+    tag: '', subtitle: 'Dale espacio a tus ideas.',
+    description: 'Un escritorio más despejado y una escritura cómoda. Trazo combina un formato compacto con teclas de perfil bajo para que cada idea encuentre su lugar.',
+    features: ['Distribución en español con tecla Ñ', 'Conexión inalámbrica Bluetooth', 'Formato compacto y batería recargable'],
+    detail: 'Incluye cable USB-C. Compatible con Windows y macOS.',
+  },
+];

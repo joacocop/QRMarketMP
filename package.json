@@ -1,0 +1,14 @@
+{
+  "name": "qrmarket-mp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Marketplace QRMarket MP - desarrollo por requisitos QM",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "test": "node --test"
+  },
+  "dependencies": { "express": "^5.1.0" }
+}

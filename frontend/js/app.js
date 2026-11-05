@@ -1,16 +1,28 @@
 import { createCart, CART_STORAGE_KEY } from './cart.js';
+import { createCheckoutSession } from './checkout.js';
 
 const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 let cart;
 const main = document.querySelector('#main');
 const search = document.querySelector('#search');
 const dialog = document.querySelector('#qr-dialog');
+const paymentDialog = document.querySelector('#payment-dialog');
 const arrow = '<span aria-hidden="true">↗</span>';
 const check = '<span aria-hidden="true">✓</span>';
 let products = [];
 let catalogUrl = '/';
 let toastTimer;
 let qrRequest = 0;
+let buyerEmail = '';
+let checkoutBusy = false;
+let viewVersion = 0;
+let paymentExpiryTimer;
+const checkoutSession = createCheckoutSession({ getItems: () => cart?.items() || [] });
+
+function invalidateCheckout() {
+  checkoutSession.invalidate();
+  if (paymentDialog.open) paymentDialog.close();
+}
 
 function storageError() { document.querySelector('#storage-notice').hidden = false; }
 function browserStorage() {
@@ -150,6 +162,7 @@ function renderDetail(product) {
     try {
       const amount = quantity.valueAsNumber;
       cart.add(product.id, amount);
+      invalidateCheckout();
       updateCartCount();
       document.querySelector('#add-message').innerHTML = `${amount} ${amount === 1 ? 'unidad agregada' : 'unidades agregadas'} a tu carrito. <a href="/carrito" data-link>Ver carrito →</a>`;
       showToast(`${check} ${escapeHTML(product.title)} se agregó a tu carrito.`);
@@ -163,6 +176,7 @@ function renderDetail(product) {
 }
 
 function renderCart() {
+  viewVersion++;
   document.title = 'Tu carrito · QRMarket MP';
   search.value = '';
   const items = cart.items();
@@ -175,10 +189,80 @@ function renderCart() {
         <div class="cart-item-description"><span class="product-category">${escapeHTML(product.brand)}</span><a href="/productos/${product.id}" data-link><h2>${escapeHTML(product.title)}</h2></a><p>${money.format(product.price)} <span>por unidad</span></p>${stockLabel(product)}<button class="remove-item" data-cart-action="remove" data-id="${product.id}" aria-label="Eliminar ${escapeHTML(product.title)}">Eliminar</button></div>
         <div class="cart-item-amount"><div class="quantity-control"><button type="button" data-cart-action="decrease" data-id="${product.id}" aria-label="Disminuir ${escapeHTML(product.title)}" ${quantity <= 1 ? 'disabled' : ''}>−</button><input type="number" value="${quantity}" min="1" max="${product.stock}" step="1" required data-cart-quantity="${product.id}" aria-label="Cantidad de ${escapeHTML(product.title)}"><button type="button" data-cart-action="increase" data-id="${product.id}" aria-label="Aumentar ${escapeHTML(product.title)}" ${quantity >= product.stock ? 'disabled' : ''}>+</button></div><strong>${money.format(lineTotal)}</strong></div>
       </article>`).join('')}</section>
-      <aside class="cart-summary" aria-labelledby="summary-title"><span class="eyebrow">UN PASO MÁS CERCA</span><h2 id="summary-title">Tu selección</h2><div class="summary-row"><span>Productos</span><span>${cart.count()} ${cart.count() === 1 ? 'unidad' : 'unidades'}</span></div><div class="summary-total"><span>Subtotal</span><strong id="cart-subtotal">${money.format(cart.subtotal())}</strong></div><p>Tu carrito queda guardado para que puedas seguir donde lo dejaste.</p><a class="button button-primary" href="${escapeHTML(catalogUrl)}" data-link>Seguir comprando ${arrow}</a><span class="demo-note">Precios y stock de demostración · ARS</span></aside></div>`
+      <aside class="cart-summary" aria-labelledby="summary-title"><span class="eyebrow">UN PASO MÁS CERCA</span><h2 id="summary-title">Tu selección</h2><div class="summary-row"><span>Productos</span><span>${cart.count()} ${cart.count() === 1 ? 'unidad' : 'unidades'}</span></div><div class="summary-total"><span>Subtotal</span><strong id="cart-subtotal">${money.format(cart.subtotal())}</strong></div>
+        <form id="checkout-form" class="checkout-form"><label for="buyer-email">Tu correo electrónico (opcional)</label><input type="email" id="buyer-email" name="email" value="${escapeHTML(buyerEmail)}" maxlength="254" autocomplete="email" inputmode="email" placeholder="vos@ejemplo.com"><p class="checkout-help">Podés dejarlo vacío e iniciar sesión con tu cuenta de MercadoPago para continuar.</p><button type="submit" data-payment-method="checkout" class="button button-primary">Pagar con MercadoPago ${arrow}</button><button type="submit" data-payment-method="qr" class="button button-secondary">${qrIcon} Pagar con QR</button><p id="checkout-error" class="checkout-error" role="alert" hidden></p></form>
+        <p class="payment-assurance">Tus datos de pago se ingresan en MercadoPago.</p><a class="continue-link" href="${escapeHTML(catalogUrl)}" data-link>Seguir comprando ${arrow}</a><span class="demo-note">Precios y stock de demostración · ARS</span></aside></div>`
       : `<div class="empty-state empty-cart"><span aria-hidden="true">✳</span><h2>Acá empieza tu próximo hallazgo.</h2><p>Tu carrito está vacío. Explorá el catálogo y agregá lo que más te guste.</p><a href="${escapeHTML(catalogUrl)}" data-link class="button button-primary">Explorar productos ${arrow}</a></div>`}
   </div>`;
+  syncCheckoutControls();
 }
+
+function syncCheckoutControls() {
+  const form = document.querySelector('#checkout-form');
+  if (!form) return;
+  form.querySelectorAll('input, button').forEach((control) => { control.disabled = checkoutBusy; });
+  form.setAttribute('aria-busy', String(checkoutBusy));
+  form.querySelector('[data-payment-method="checkout"]').innerHTML = checkoutBusy ? 'Preparando tu pago…' : `Pagar con MercadoPago ${arrow}`;
+  form.querySelector('[data-payment-method="qr"]').innerHTML = `${qrIcon} Pagar con QR`;
+}
+
+async function startPayment(method) {
+  const form = document.querySelector('#checkout-form');
+  if (checkoutBusy || !form?.reportValidity()) return;
+  const version = viewVersion;
+  buyerEmail = form.querySelector('#buyer-email').value.trim();
+  const errorMessage = form.querySelector('#checkout-error');
+  errorMessage.hidden = true;
+  checkoutBusy = true;
+  syncCheckoutControls();
+  try {
+    const payment = await checkoutSession.prepare(buyerEmail);
+    if (version !== viewVersion || location.pathname.replace(/\/$/, '') !== '/carrito') return;
+    if (method === 'qr') showPaymentQR(payment);
+    else window.location.assign(payment.init_point);
+  } catch (error) {
+    const currentError = document.querySelector('#checkout-error');
+    if (currentError) { currentError.textContent = error.message; currentError.hidden = false; }
+  } finally { checkoutBusy = false; syncCheckoutControls(); }
+}
+
+function showPaymentQR(payment) {
+  clearTimeout(paymentExpiryTimer);
+  const content = document.querySelector('#payment-content');
+  const expiry = new Date(payment.expires_at);
+  content.innerHTML = `<p class="qr-intro">Escaneá el código con tu celular y completá el pago en MercadoPago.</p><div class="payment-total"><span>Importe a pagar</span><strong>${money.format(payment.total)} <small>ARS</small></strong></div><img class="qr-image" src="${payment.qr_image}" alt="QR para pagar ${money.format(payment.total)} en MercadoPago" width="400" height="400"><p class="payment-expiry">Disponible hasta las <time datetime="${escapeHTML(payment.expires_at)}">${expiry.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>.</p><div class="payment-qr-actions"><a class="button button-primary" href="${escapeHTML(payment.init_point)}" target="_blank" rel="noopener noreferrer">Abrir MercadoPago ${arrow}</a><a class="button button-secondary" href="${payment.qr_image}" download="qrmarket-pago.png">Descargar QR <span aria-hidden="true">↓</span></a></div><p class="payment-expired" role="status" hidden>Este enlace venció. Cerrá esta ventana y generá un nuevo QR.</p><span class="demo-note">El QR abre el checkout de MercadoPago.</span>`;
+  if (!paymentDialog.open) paymentDialog.showModal();
+  paymentExpiryTimer = setTimeout(() => {
+    content.querySelector('.payment-expired').hidden = false;
+    content.querySelector('.payment-qr-actions').hidden = true;
+  }, Math.max(0, expiry.getTime() - Date.now()));
+}
+
+function renderCheckoutReturn(status) {
+  document.title = 'Tu pago · QRMarket MP';
+  const copy = {
+    success: ['Volviste de MercadoPago.', 'Si terminaste de pagar, podés consultar el resultado en tu cuenta de MercadoPago. Tu carrito permanece guardado.'],
+    failure: ['Podés volver a intentarlo.', 'Si el pago no se completó, volvé al carrito para elegir otra opción. Podés consultar el resultado de la operación en MercadoPago.'],
+    pending: ['Consultá el estado de tu pago.', 'Algunos medios de pago pueden demorar. Revisá el resultado y los próximos pasos en tu cuenta de MercadoPago. Tu carrito permanece guardado.'],
+  }[status];
+  main.innerHTML = `<div class="container checkout-return"><span class="eyebrow">TU COMPRA EN QRMARKET</span><span class="return-symbol" aria-hidden="true">↗</span><h1>${copy[0]}</h1><p>${copy[1]}</p><div class="return-actions"><a class="button button-primary" href="/carrito" data-link>Volver a mi carrito ${arrow}</a><a class="back-link" href="/" data-link>Explorar productos</a></div></div>`;
+}
+
+main.addEventListener('submit', (event) => {
+  if (event.target.id !== 'checkout-form') return;
+  event.preventDefault();
+  startPayment(event.submitter?.dataset.paymentMethod || 'checkout');
+});
+main.addEventListener('input', (event) => {
+  if (event.target.id === 'buyer-email') { buyerEmail = event.target.value; checkoutSession.invalidate(); }
+});
+document.querySelector('#close-payment').addEventListener('click', () => paymentDialog.close());
+paymentDialog.addEventListener('close', () => clearTimeout(paymentExpiryTimer));
+paymentDialog.addEventListener('click', (event) => {
+  if (event.target !== paymentDialog) return;
+  const rect = paymentDialog.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) paymentDialog.close();
+});
 
 async function openQR(id) {
   const product = products.find((item) => item.id === id);
@@ -211,6 +295,7 @@ document.addEventListener('click', (event) => {
     if (action === 'remove') cart.remove(id);
     if (action === 'increase') cart.setQuantity(id, cart.quantity(id) + 1);
     if (action === 'decrease') cart.setQuantity(id, cart.quantity(id) - 1);
+    invalidateCheckout();
     updateCartCount();
     renderCart();
     const control = [...main.querySelectorAll('[data-cart-action]')].find((item) => item.dataset.cartAction === action && item.dataset.id === id && !item.disabled);
@@ -226,6 +311,7 @@ main.addEventListener('change', (event) => {
   const id = input.dataset.cartQuantity;
   try {
     cart.setQuantity(id, input.valueAsNumber);
+    invalidateCheckout();
     updateCartCount();
     renderCart();
     main.querySelector(`[data-cart-quantity="${id}"]`)?.focus({ preventScroll: true });
@@ -238,6 +324,9 @@ main.addEventListener('change', (event) => {
 window.addEventListener('storage', (event) => {
   if (!cart || (event.key !== CART_STORAGE_KEY && event.key !== null)) return;
   cart.reload();
+  const wasPaying = paymentDialog.open;
+  invalidateCheckout();
+  if (wasPaying) showToast('El carrito cambió en otra pestaña. Revisalo y generá un nuevo pago.');
   updateCartCount();
   if (location.pathname !== '/') renderRoute();
 });
@@ -254,6 +343,9 @@ function renderNotFound() {
   main.innerHTML = '<div class="container empty-state page-empty"><span class="eyebrow">404</span><h1>Este hallazgo no está por acá.</h1><p>El producto que buscás no existe o el enlace es incorrecto.</p><a href="/" data-link class="button button-primary">Volver al catálogo ↗</a></div>';
 }
 function renderRoute() {
+  viewVersion++;
+  const checkoutReturn = location.pathname.match(/^\/checkout\/(success|failure|pending)\/?$/);
+  if (checkoutReturn) { renderCheckoutReturn(checkoutReturn[1]); return; }
   if (location.pathname === '/carrito' || location.pathname === '/carrito/') {
     renderCart();
     return;

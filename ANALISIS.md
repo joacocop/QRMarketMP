@@ -2,7 +2,7 @@
 
 ## Alcance acordado
 
-Trabajar en esta carpeta por requisitos: QM1, luego QM2 y así sucesivamente. Se pueden agrupar varios QM cuando el usuario lo indique. Después de QM1 y QM2, el usuario pidió una paleta café/beige/crema, productos reales e implementar QM3 y QM4 juntos.
+Trabajar en esta carpeta por requisitos: QM1, luego QM2 y así sucesivamente. Se pueden agrupar varios QM cuando el usuario lo indique. Después de QM1/QM2 se implementaron QM3/QM4 con paleta café/beige/crema y productos reales. El usuario solicitó continuar con QM5 y QM6 juntos.
 
 Fuente: PDF «Marketplace con Generación de QR + Carrito de Compras + Integración MercadoPago», de 16 páginas, fechado el 04/11/2026. Los requisitos funcionales están en las páginas 12 y 13; la evaluación y los entregables, en las páginas 14 a 16.
 
@@ -10,7 +10,7 @@ La carpeta estaba vacía al comenzar la revisión.
 
 ## Requisitos y criterios de finalización
 
-**Implementados: QM1, QM2, QM3 y QM4.** QM5 a QM12 siguen pendientes. La columna de verificación traduce la consigna en comprobaciones propuestas para cada etapa.
+**Código implementado: QM1 a QM6.** MP_ACCESS_TOKEN y PUBLIC_BASE_URL ya están configurados localmente. Se creó una preferencia con la cuenta vendedora de prueba sin correo del comprador y se confirmó por API el pago completado por el usuario (`approved` / `accredited`). QM7 a QM12 siguen pendientes. La columna de verificación traduce la consigna en comprobaciones propuestas para cada etapa.
 
 | ID | Requisito del PDF | Cómo comprobar que está resuelto |
 | --- | --- | --- |
@@ -99,6 +99,10 @@ QM3 resuelto: QR por producto desde tarjetas y detalle, URL visible y descarga P
 
 QM4 resuelto: página /carrito con edición de cantidades, eliminación, vaciado, subtotal y contador. Persiste en localStorage, sincroniza pestañas, valida datos al restaurar y ajusta cantidades frente al stock actual. Avisa si el navegador no permite guardar.
 
-Validación: 16 pruebas automáticas aprobadas y recorrido de navegador en computadora y anchos de 390/320 px. QR descargado y decodificado; carrito probado tras recarga, entre pestañas y ante almacenamiento corrupto/bloqueado. Las instrucciones están en README.md y las fuentes de los productos en PRODUCTOS.md.
+QM5 implementado: endpoint POST /api/create-preference con SDK oficial, validación de productos/cantidades/stock, precios tomados del catálogo, correo opcional y referencia del intento, retorno a success/failure/pending y redirección desde el carrito. Si no hay correo, se omite payer y el comprador se identifica en MercadoPago. Las preferencias tienen vencimiento de 30 minutos y se reutilizan para evitar duplicados dentro del mismo intento.
 
-Próximo requisito, cuando el usuario lo indique: QM5, checkout con MercadoPago.
+QM6 implementado: QR que codifica el mismo init_point que usa la redirección, importe visible, enlace alternativo y descarga PNG. Se invalida al cambiar carrito/correo y se indica el vencimiento. Es un QR de URL de Checkout Pro, no la integración nativa de QR interoperable de MercadoPago.
+
+Validación: 33 pruebas automáticas aprobadas y recorrido de navegador en computadora y anchos de 390/320 px. SDK ejercitado con transporte HTTP simulado; QR descargado y decodificado; retorno manipulado no confirma pagos ni vacía el carrito. Verificación adicional con MercadoPago: cuenta vendedora de prueba argentina válida, preferencia creada sin correo, QR coincidente con el checkout y pago completado por el usuario confirmado por API como approved/accredited. La página de regreso respondió HTTP 200; el aviso intermedio observado es el intersticial gratuito de Ngrok. Las instrucciones están en README.md y MERCADOPAGO.md; las fuentes de los productos, en PRODUCTOS.md.
+
+Próximo requisito, cuando el usuario lo indique: QM7, webhooks. Las páginas de retorno conservan el carrito y no marcan órdenes como pagadas; la confirmación y actualización se incorporarán en esa etapa.

@@ -37,6 +37,10 @@
       <div class="dialog-header"><div><span class="eyebrow">ESCANEÁ Y DESCUBRÍ</span><h2 id="qr-title">QR del producto</h2></div><button class="icon-button" id="close-qr" aria-label="Cerrar QR">×</button></div>
       <div id="qr-content" aria-live="polite"></div>
     </dialog>
+    <dialog id="payment-dialog" aria-labelledby="payment-title">
+      <div class="dialog-header"><div><span class="eyebrow">PAGÁ DESDE TU CELULAR</span><h2 id="payment-title">Tu QR de pago</h2></div><button class="icon-button" id="close-payment" aria-label="Cerrar QR de pago">×</button></div>
+      <div id="payment-content" aria-live="polite"></div>
+    </dialog>
     <div id="toast" role="status" aria-live="polite" class="toast" hidden></div>
     <noscript><div class="container empty-state">Activá JavaScript en tu navegador para ver el catálogo.</div></noscript>
   </body>
